@@ -374,36 +374,41 @@ app.get("/proxy/image", async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).send("url required");
 
-    // Tentukan referer berdasarkan domain
-    const domain = new URL(url).hostname;
+    let domain;
+    try {
+      domain = new URL(url).hostname;
+    } catch(e) {
+      return res.status(400).send("Invalid URL: " + e.message);
+    }
+
     const refererMap = {
-      "upload18.cc": "https://upload18.cc/",
+      "upload18.cc":     "https://upload18.cc/",
       "hentaiocean.com": "https://hentaiocean.com/",
-      "fourhoi.com": "https://fourhoi.com/",
-      "i0.wp.com": "https://hentaiocean.com/",
-      "i1.wp.com": "https://hentaiocean.com/",
-      "i2.wp.com": "https://hentaiocean.com/",
+      "fourhoi.com":     "https://fourhoi.com/",
+      "i0.wp.com":       "https://hentaiocean.com/",
+      "i1.wp.com":       "https://hentaiocean.com/",
+      "i2.wp.com":       "https://hentaiocean.com/",
     };
     const referer = refererMap[domain] || `https://${domain}/`;
 
     const imgRes = await fetch(url, {
       headers: {
-        Referer: referer,
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
+        "Referer": referer,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
       },
     });
 
-    if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+    if (!imgRes.ok) return res.status(imgRes.status).send(`Upstream error: ${imgRes.status}`);
 
     const contentType = imgRes.headers.get("content-type") || "image/jpeg";
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     const buffer = await imgRes.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (err) {
-    res.status(500).send("Image fetch failed");
+    res.status(500).send("Image fetch failed: " + err.message);
   }
 });
 
