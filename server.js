@@ -402,6 +402,29 @@ app.get("/jav/search", async (req, res) => {
   }
 });
 
+// DEBUG — hapus setelah selesai
+app.get("/debug/javdb/:code", async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const searchHtml = await fetchHtml(
+      `${JAVDB_BASE}/search?q=${encodeURIComponent(code)}&f=all`,
+      {
+        Referer: "https://javdb.com/",
+        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+        Cookie: "over18=1",
+      }
+    );
+    const firstResult = searchHtml.match(/href="(\/v\/[a-zA-Z0-9]+)"/);
+    res.json({
+      htmlLength: searchHtml.length,
+      firstResult: firstResult ? firstResult[1] : null,
+      snippet: searchHtml.slice(0, 500),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ============================================================
 // HEALTH
 // ============================================================
