@@ -420,6 +420,39 @@ app.get("/jav/test-thumb", async (req, res) => {
   });
 });
 
+// GET /jav/r18?code=SSIS-392
+app.get("/jav/r18", async (req, res) => {
+  try {
+    const code = (req.query.code || "").trim();
+    if (!code) return res.status(400).json({ error: "code required" });
+    
+    // Convert SSIS-392 → ssis00392
+    const contentId = code.toLowerCase().replace(/-(\d+)$/, (_, n) => n.padStart(5, '0'));
+    
+    const json = await fetchJson(`https://r18.dev/videos/vod/movies/detail/-/dvd_id=${contentId}/json`);
+    
+    res.json({
+      data: {
+        code,
+        title:      json.title || "",
+        thumb_url:  json.images?.jacket_image?.large2 || "",
+        poster_url: json.images?.jacket_image?.large2 || "",
+        actors:     (json.actresses || []).map(a => a.name).join(", "),
+        director:   json.director || "",
+        categories: (json.categories || []).map(c => c.name),
+        duration:   json.runtime_minutes ? `${json.runtime_minutes} min` : "",
+        year:       json.release_date?.split("-")[0] || "",
+        pubDate:    json.release_date || "",
+        sample_url: json.sample?.high || "",
+        label:      json.label?.name || "",
+        series:     json.series?.name || "",
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: "R18 fetch failed", message: err.message });
+  }
+});
+
 // ============================================================
 // HEALTH
 // ============================================================
