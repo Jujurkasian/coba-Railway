@@ -472,9 +472,9 @@ app.get("/jav/r18", async (req, res) => {
   }
 });
 
-app.get("/test/hanime", async (req, res) => {
+app.get("/test/animeid", async (req, res) => {
   try {
-    const json = await fetchJson("https://search.htv-services.com/?search_text=&tags=[]&tags_mode=AND&brands=[]&blacklist=[]&order_by=created_at_unix&ordering=desc&page=0");
+    const json = await fetchJson("https://hentai.animeidhentai.com/api/videos?page=1&per_page=10");
     res.json(json);
   } catch(err) {
     res.status(500).json({ error: err.message });
