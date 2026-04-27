@@ -149,7 +149,7 @@ app.get("/hentai/list", async (req, res) => {
       const link = get("link");
       const title = get("title");
       const pubDate = get("pubDate");
-      const slugMatch = link.match(/\/watch\/([^/?s]+)/);
+      const slugMatch = link.match(/\/watch\/([^/?]+)/);
       if (!slugMatch) continue;
       const slug = slugMatch[1];
       const genres = [];
