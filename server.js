@@ -377,29 +377,31 @@ app.get("/proxy/image", async (req, res) => {
     let domain;
     try {
       domain = new URL(url).hostname;
-    } catch(e) {
+    } catch (e) {
       return res.status(400).send("Invalid URL: " + e.message);
     }
 
     const refererMap = {
-      "upload18.cc":     "https://upload18.cc/",
+      "upload18.cc": "https://upload18.cc/",
       "hentaiocean.com": "https://hentaiocean.com/",
-      "fourhoi.com":     "https://fourhoi.com/",
-      "i0.wp.com":       "https://hentaiocean.com/",
-      "i1.wp.com":       "https://hentaiocean.com/",
-      "i2.wp.com":       "https://hentaiocean.com/",
+      "fourhoi.com": "https://fourhoi.com/",
+      "i0.wp.com": "https://hentaiocean.com/",
+      "i1.wp.com": "https://hentaiocean.com/",
+      "i2.wp.com": "https://hentaiocean.com/",
     };
     const referer = refererMap[domain] || `https://${domain}/`;
 
     const imgRes = await fetch(url, {
       headers: {
-        "Referer": referer,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: referer,
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
       },
     });
 
-    if (!imgRes.ok) return res.status(imgRes.status).send(`Upstream error: ${imgRes.status}`);
+    if (!imgRes.ok)
+      return res.status(imgRes.status).send(`Upstream error: ${imgRes.status}`);
 
     const contentType = imgRes.headers.get("content-type") || "image/jpeg";
     res.setHeader("Content-Type", contentType);
@@ -416,7 +418,7 @@ app.get("/jav/test-thumb", async (req, res) => {
   const r = await fetch("https://fourhoi.com/ssis-392/cover-n.jpg");
   res.json({
     status: r.status,
-    headers: Object.fromEntries(r.headers.entries())
+    headers: Object.fromEntries(r.headers.entries()),
   });
 });
 
@@ -425,28 +427,32 @@ app.get("/jav/r18", async (req, res) => {
   try {
     const code = (req.query.code || "").trim();
     if (!code) return res.status(400).json({ error: "code required" });
-    
+
     // Convert SSIS-392 → ssis00392
-    const contentId = code.toLowerCase().replace(/-(\d+)$/, (_, n) => n.padStart(5, '0'));
-    
-    const json = await fetchJson(`https://r18.dev/videos/vod/movies/detail/-/dvd_id=${contentId}/json`);
-    
+    const contentId = code
+      .toLowerCase()
+      .replace(/-(\d+)$/, (_, n) => n.padStart(5, "0"));
+
+    const json = await fetchJson(
+      `https://r18.dev/videos/vod/movies/detail/-/dvd_id=${contentId}/json`,
+    );
+
     res.json({
       data: {
         code,
-        title:      json.title || "",
-        thumb_url:  json.images?.jacket_image?.large2 || "",
+        title: json.title || "",
+        thumb_url: json.images?.jacket_image?.large2 || "",
         poster_url: json.images?.jacket_image?.large2 || "",
-        actors:     (json.actresses || []).map(a => a.name).join(", "),
-        director:   json.director || "",
-        categories: (json.categories || []).map(c => c.name),
-        duration:   json.runtime_minutes ? `${json.runtime_minutes} min` : "",
-        year:       json.release_date?.split("-")[0] || "",
-        pubDate:    json.release_date || "",
+        actors: (json.actresses || []).map((a) => a.name).join(", "),
+        director: json.director || "",
+        categories: (json.categories || []).map((c) => c.name),
+        duration: json.runtime_minutes ? `${json.runtime_minutes} min` : "",
+        year: json.release_date?.split("-")[0] || "",
+        pubDate: json.release_date || "",
         sample_url: json.sample?.high || "",
-        label:      json.label?.name || "",
-        series:     json.series?.name || "",
-      }
+        label: json.label?.name || "",
+        series: json.series?.name || "",
+      },
     });
   } catch (err) {
     res.status(500).json({ error: "R18 fetch failed", message: err.message });
@@ -456,33 +462,29 @@ app.get("/jav/r18", async (req, res) => {
 app.get("/jav/detail/:code", async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
-    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`);
+    const json = await fetchJson(
+      `${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`,
+    );
     const list = json.list || [];
 
-    if (!list.length) return res.status(404).json({ error: "JAV not found", code });
+    if (!list.length)
+      return res.status(404).json({ error: "JAV not found", code });
 
-    const exact = list.find(i =>
-      (i.movie_code || "").toUpperCase() === code ||
-      (i.slug || "").toUpperCase() === code.toLowerCase()
-    ) || list[0];
+    const exact =
+      list.find(
+        (i) =>
+          (i.movie_code || "").toUpperCase() === code ||
+          (i.slug || "").toUpperCase() === code.toLowerCase(),
+      ) || list[0];
 
-    const primary  = normalizeItem(exact);
+    const primary = normalizeItem(exact);
     const variants = list.map(normalizeItem);
-
-    // Enrich dengan r18
-    try {
-      const contentId = code.toLowerCase().replace(/-(\d+)$/, (_, n) => n.padStart(5, '0'));
-      const r18 = await fetchJson(`https://r18.dev/videos/vod/movies/detail/-/dvd_id=${contentId}/json`);
-      if (r18.images?.jacket_image?.large2) {
-        primary.thumb_url  = r18.images.jacket_image.large2;
-        primary.poster_url = r18.images.jacket_image.large2;
-      }
-      if (r18.sample?.high) primary.sample_url = r18.sample.high;
-    } catch(_) {} // silently fail kalau r18 tidak ada
 
     res.json({ data: { ...primary, variants } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch JAV detail", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch JAV detail", message: err.message });
   }
 });
 
