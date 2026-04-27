@@ -472,10 +472,10 @@ app.get("/jav/r18", async (req, res) => {
   }
 });
 
-app.get("/test/animeid", async (req, res) => {
+app.get("/test/hentaifox", async (req, res) => {
   try {
-    const json = await fetchJson("https://hentai.animeidhentai.com/api/videos?page=1&per_page=10");
-    res.json(json);
+    const html = await fetchHtml("https://hentaifox.com/");
+    res.json({ length: html.length, preview: html.slice(0, 500) });
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
