@@ -453,6 +453,39 @@ app.get("/jav/r18", async (req, res) => {
   }
 });
 
+app.get("/jav/detail/:code", async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`);
+    const list = json.list || [];
+
+    if (!list.length) return res.status(404).json({ error: "JAV not found", code });
+
+    const exact = list.find(i =>
+      (i.movie_code || "").toUpperCase() === code ||
+      (i.slug || "").toUpperCase() === code.toLowerCase()
+    ) || list[0];
+
+    const primary  = normalizeItem(exact);
+    const variants = list.map(normalizeItem);
+
+    // Enrich dengan r18
+    try {
+      const contentId = code.toLowerCase().replace(/-(\d+)$/, (_, n) => n.padStart(5, '0'));
+      const r18 = await fetchJson(`https://r18.dev/videos/vod/movies/detail/-/dvd_id=${contentId}/json`);
+      if (r18.images?.jacket_image?.large2) {
+        primary.thumb_url  = r18.images.jacket_image.large2;
+        primary.poster_url = r18.images.jacket_image.large2;
+      }
+      if (r18.sample?.high) primary.sample_url = r18.sample.high;
+    } catch(_) {} // silently fail kalau r18 tidak ada
+
+    res.json({ data: { ...primary, variants } });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch JAV detail", message: err.message });
+  }
+});
+
 // ============================================================
 // HEALTH
 // ============================================================
