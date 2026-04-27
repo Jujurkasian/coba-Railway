@@ -73,7 +73,7 @@ function normalizeItem(item) {
     slug:        slug,
     type:        item.type_name || "",
     poster_url:  item.poster_url || `https://upload18.cc/v/${slug}/poster.jpg`,
-    thumb_url:   item.thumb_url || `https://upload18.cc/v/${slug}/thumb.jpg`,
+    thumb_url:   item.thumb_url || "",
     actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
     director:    (item.director || []).filter(d => d !== "Updating").join(", "),
     categories:  item.category || [],
