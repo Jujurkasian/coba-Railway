@@ -14,9 +14,9 @@ app.use(
 );
 app.use(express.json());
 
-const API_BASE    = "https://porn-api.com/api/v1/public";
+const API_BASE = "https://porn-api.com/api/v1/public";
 const HENTAI_BASE = "https://hentaiocean.com";
-const AVDB_BASE   = "https://avdbapi.com/api.php/provide/vod";
+const AVDB_BASE = "https://avdbapi.com/api.php/provide/vod";
 
 // ============================================================
 // SHARED FETCH HELPER
@@ -24,7 +24,8 @@ const AVDB_BASE   = "https://avdbapi.com/api.php/provide/vod";
 async function fetchHtml(url, extraHeaders = {}) {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.5",
       ...extraHeaders,
@@ -37,7 +38,8 @@ async function fetchHtml(url, extraHeaders = {}) {
 async function fetchJson(url) {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       Accept: "application/json",
     },
   });
@@ -63,25 +65,28 @@ const AVDB_TYPES = {
 
 function normalizeItem(item) {
   const code = item.movie_code || item.slug || "";
-  const slug = item.slug || (item.movie_code || "").toLowerCase().replace(/ /g, '-');
+  const slug =
+    item.slug || (item.movie_code || "").toLowerCase().replace(/ /g, "-");
   const embedUrl = item.episodes?.server_data?.Full?.link_embed || "";
-  
+
   return {
-    id:          item.id,
-    code:        code,
-    title:       item.name || item.origin_name || "",
-    slug:        slug,
-    type:        item.type_name || "",
-    poster_url:  item.poster_url || `https://upload18.cc/v/${slug}/poster.jpg`,
-    thumb_url:   item.thumb_url || `https://fourhoi.com/${(item.movie_code || item.slug || "").toLowerCase().replace(/_/g, '-')}/cover-n.jpg`,
-    actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
-    director:    (item.director || []).filter(d => d !== "Updating").join(", "),
-    categories:  item.category || [],
-    quality:     item.quality || "",
-    duration:    item.time || "",
-    year:        item.year || "",
+    id: item.id,
+    code: code,
+    title: item.name || item.origin_name || "",
+    slug: slug,
+    type: item.type_name || "",
+    poster_url: item.poster_url || `https://upload18.cc/v/${slug}/poster.jpg`,
+    thumb_url:
+      item.thumb_url ||
+      `https://fourhoi.com/${(item.movie_code || item.slug || "").toLowerCase().replace(/_/g, "-")}/cover-n.jpg`,
+    actors: (item.actor || []).filter((a) => a !== "Updating").join(", "),
+    director: (item.director || []).filter((d) => d !== "Updating").join(", "),
+    categories: item.category || [],
+    quality: item.quality || "",
+    duration: item.time || "",
+    year: item.year || "",
     description: (item.description || "").replace(/<[^>]+>/g, "").trim(),
-    pubDate:     item.vod_pubdate || item.created_at || "",
+    pubDate: item.vod_pubdate || item.created_at || "",
     embedUrl,
   };
 }
@@ -92,9 +97,13 @@ function normalizeItem(item) {
 app.all("/api/*path", async (req, res) => {
   try {
     const pathParts = req.params.path;
-    const path = Array.isArray(pathParts) ? pathParts.join("/") : pathParts || "";
+    const path = Array.isArray(pathParts)
+      ? pathParts.join("/")
+      : pathParts || "";
     const queryString = new URLSearchParams(req.query).toString();
-    const finalUrl = queryString ? `${API_BASE}/${path}?${queryString}` : `${API_BASE}/${path}`;
+    const finalUrl = queryString
+      ? `${API_BASE}/${path}?${queryString}`
+      : `${API_BASE}/${path}`;
     const fetchOptions = {
       method: req.method,
       headers: {
@@ -109,7 +118,9 @@ app.all("/api/*path", async (req, res) => {
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (err) {
-    res.status(500).json({ error: "Proxy internal error", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Proxy internal error", message: err.message });
   }
 });
 
@@ -118,7 +129,7 @@ app.all("/api/*path", async (req, res) => {
 // ============================================================
 app.get("/hentai/list", async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 20);
     const genre = (req.query.genre || "").toLowerCase().trim();
     const rssText = await fetchHtml(`${HENTAI_BASE}/rss.xml`);
@@ -129,12 +140,14 @@ app.get("/hentai/list", async (req, res) => {
       const block = match[1];
       const get = (tag) => {
         const m = block.match(
-          new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`),
+          new RegExp(
+            `<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`,
+          ),
         );
         return m ? (m[1] || m[2] || "").trim() : "";
       };
-      const link    = get("link");
-      const title   = get("title");
+      const link = get("link");
+      const title = get("title");
       const pubDate = get("pubDate");
       const slugMatch = link.match(/\/watch\/([^/?s]+)/);
       if (!slugMatch) continue;
@@ -144,22 +157,29 @@ app.get("/hentai/list", async (req, res) => {
       let catMatch;
       while ((catMatch = catRegex.exec(block)) !== null)
         genres.push(catMatch[1].trim());
-      if (genre && !genres.map((g) => g.toLowerCase()).includes(genre)) continue;
+      if (genre && !genres.map((g) => g.toLowerCase()).includes(genre))
+        continue;
       const enclosure = block.match(/<enclosure[^>]+url="([^"]+)"/);
-      const cover = enclosure ? enclosure[1] : `${HENTAI_BASE}/thumbnail/${slug}.webp`;
+      const cover = enclosure
+        ? enclosure[1]
+        : `${HENTAI_BASE}/thumbnail/${slug}.webp`;
       items.push({ slug, title, pubDate, genres, cover, link });
     }
-    const total      = items.length;
+    const total = items.length;
     const totalPages = Math.ceil(total / limit) || 1;
-    const safePage   = Math.min(page, totalPages);
+    const safePage = Math.min(page, totalPages);
     res.json({
       data: {
         data: items.slice((safePage - 1) * limit, safePage * limit),
-        total, page: safePage, totalPages,
+        total,
+        page: safePage,
+        totalPages,
       },
     });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch hentai list", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch hentai list", message: err.message });
   }
 });
 
@@ -173,38 +193,45 @@ app.get("/hentai/genres", async (req, res) => {
       if (m[1].trim()) genreSet.add(m[1].trim());
     res.json({ data: { genres: [...genreSet].sort() } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch genres", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch genres", message: err.message });
   }
 });
 
 app.get("/hentai/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const apiRes = await fetch(`${HENTAI_BASE}/api?action=hentai&slug=${slug}`, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
+    const apiRes = await fetch(
+      `${HENTAI_BASE}/api?action=hentai&slug=${slug}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      },
+    );
     if (!apiRes.ok) throw new Error(`Hentai API failed: ${apiRes.status}`);
-    const json   = await apiRes.json();
-    const info   = (json.info || [])[0] || {};
+    const json = await apiRes.json();
+    const info = (json.info || [])[0] || {};
     const genres = (json.genres || []).map((g) => g.genre);
     res.json({
       data: {
         slug,
-        title:       info.videoname || slug,
+        title: info.videoname || slug,
         description: info.description || "",
         releaseDate: info.releasedate || "",
-        uploadDate:  info.uploaddate || "",
+        uploadDate: info.uploaddate || "",
         cover: info.coverimg
           ? `${HENTAI_BASE}/assets/cover/${info.coverimg}`
           : `${HENTAI_BASE}/thumbnail/${slug}.webp`,
         thumbnail: `${HENTAI_BASE}/thumbnail/${slug}.webp`,
-        embedUrl:  `${HENTAI_BASE}/embed/${slug}`,
+        embedUrl: `${HENTAI_BASE}/embed/${slug}`,
         genres,
         status: info.status,
       },
     });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch hentai detail", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch hentai detail", message: err.message });
   }
 });
 
@@ -215,9 +242,9 @@ app.get("/hentai/:slug", async (req, res) => {
 // GET /jav/list?page=1&limit=20&type=censored
 app.get("/jav/list", async (req, res) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 20);
-    const type  = (req.query.type || "").toLowerCase().trim();
+    const type = (req.query.type || "").toLowerCase().trim();
     const genre = (req.query.genre || "").toLowerCase().trim();
 
     const typeId = AVDB_TYPES[type] || "";
@@ -225,36 +252,41 @@ app.get("/jav/list", async (req, res) => {
       ? `${AVDB_BASE}?ac=list&t=${typeId}&pg=${page}`
       : `${AVDB_BASE}?ac=list&pg=${page}`;
 
-    const json  = await fetchJson(avdbUrl);
-    let items   = (json.list || []).map(normalizeItem);
+    const json = await fetchJson(avdbUrl);
+    let items = (json.list || []).map(normalizeItem);
 
     // Filter kategori manual kalau ada query genre
     if (genre) {
-      items = items.filter(i =>
-        i.categories.some(c => c.toLowerCase().includes(genre)) ||
-        i.type.toLowerCase().includes(genre)
+      items = items.filter(
+        (i) =>
+          i.categories.some((c) => c.toLowerCase().includes(genre)) ||
+          i.type.toLowerCase().includes(genre),
       );
     }
 
-    const total      = json.total || items.length;
+    const total = json.total || items.length;
     const totalPages = json.pagecount || Math.ceil(total / limit) || 1;
-    const sliced     = items.slice(0, limit);
+    const sliced = items.slice(0, limit);
 
     res.json({ data: { data: sliced, total, page, totalPages } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch JAV list", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch JAV list", message: err.message });
   }
 });
 
 // GET /jav/genres
 app.get("/jav/genres", async (req, res) => {
   try {
-    const json    = await fetchJson(`${AVDB_BASE}?ac=list&pg=1`);
+    const json = await fetchJson(`${AVDB_BASE}?ac=list&pg=1`);
     const classes = json.class || [];
-    const genres  = classes.map(c => c.type_name);
+    const genres = classes.map((c) => c.type_name);
     res.json({ data: { genres } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch JAV genres", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch JAV genres", message: err.message });
   }
 });
 
@@ -262,23 +294,30 @@ app.get("/jav/genres", async (req, res) => {
 app.get("/jav/detail/:code", async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
-    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`);
+    const json = await fetchJson(
+      `${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`,
+    );
     const list = json.list || [];
 
-    if (!list.length) return res.status(404).json({ error: "JAV not found", code });
+    if (!list.length)
+      return res.status(404).json({ error: "JAV not found", code });
 
     // Exact match dulu, fallback ke index 0
-    const exact = list.find(i =>
-      (i.movie_code || "").toUpperCase() === code ||
-      (i.slug || "").toUpperCase() === code.toLowerCase()
-    ) || list[0];
+    const exact =
+      list.find(
+        (i) =>
+          (i.movie_code || "").toUpperCase() === code ||
+          (i.slug || "").toUpperCase() === code.toLowerCase(),
+      ) || list[0];
 
-    const primary  = normalizeItem(exact);
+    const primary = normalizeItem(exact);
     const variants = list.map(normalizeItem);
 
     res.json({ data: { ...primary, variants } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch JAV detail", message: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch JAV detail", message: err.message });
   }
 });
 
@@ -288,12 +327,15 @@ app.get("/jav/search", async (req, res) => {
     const q = (req.query.q || "").trim();
     if (!q) return res.status(400).json({ error: "Query q is required" });
 
-    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(q)}`);
+    const json = await fetchJson(
+      `${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(q)}`,
+    );
     const list = json.list || [];
 
-    if (!list.length) return res.status(404).json({ error: "JAV not found", code: q });
+    if (!list.length)
+      return res.status(404).json({ error: "JAV not found", code: q });
 
-    const primary  = normalizeItem(list[0]);
+    const primary = normalizeItem(list[0]);
     const variants = list.map(normalizeItem);
 
     res.json({ data: { ...primary, variants } });
@@ -309,8 +351,9 @@ app.get("/jav/thumb", async (req, res) => {
 
     const imgRes = await fetch(url, {
       headers: {
-        "Referer": "https://upload18.cc/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Referer: "https://upload18.cc/",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
     });
 
@@ -334,19 +377,21 @@ app.get("/proxy/image", async (req, res) => {
     // Tentukan referer berdasarkan domain
     const domain = new URL(url).hostname;
     const refererMap = {
-      "upload18.cc":      "https://upload18.cc/",
-      "hentaiocean.com":  "https://hentaiocean.com/",
-      "i0.wp.com":        "https://hentaiocean.com/",
-      "i1.wp.com":        "https://hentaiocean.com/",
-      "i2.wp.com":        "https://hentaiocean.com/",
+      "upload18.cc": "https://upload18.cc/",
+      "hentaiocean.com": "https://hentaiocean.com/",
+      "fourhoi.com": "https://fourhoi.com/",
+      "i0.wp.com": "https://hentaiocean.com/",
+      "i1.wp.com": "https://hentaiocean.com/",
+      "i2.wp.com": "https://hentaiocean.com/",
     };
     const referer = refererMap[domain] || `https://${domain}/`;
 
     const imgRes = await fetch(url, {
       headers: {
-        "Referer": referer,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: referer,
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
       },
     });
 
@@ -360,6 +405,14 @@ app.get("/proxy/image", async (req, res) => {
   } catch (err) {
     res.status(500).send("Image fetch failed");
   }
+});
+
+app.get("/jav/test-thumb", async (req, res) => {
+  const r = await fetch("https://fourhoi.com/ssis-392/cover-n.jpg");
+  res.json({
+    status: r.status,
+    headers: Object.fromEntries(r.headers.entries())
+  });
 });
 
 // ============================================================
