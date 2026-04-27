@@ -472,6 +472,15 @@ app.get("/jav/r18", async (req, res) => {
   }
 });
 
+app.get("/hentai/test-hanime", async (req, res) => {
+  try {
+    const json = await fetchJson("https://search.htv-services.com/?search_text=&tags=[]&tags_mode=AND&brands=[]&blacklist=[]&order_by=created_at_unix&ordering=desc&page=0");
+    res.json(json);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 // ============================================================
