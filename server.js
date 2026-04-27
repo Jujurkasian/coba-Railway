@@ -14,10 +14,9 @@ app.use(
 );
 app.use(express.json());
 
-const API_BASE     = "https://porn-api.com/api/v1/public";
-const HENTAI_BASE  = "https://hentaiocean.com";
-const JAVGURU_BASE = "https://jav.guru";
-const JAVDB_BASE   = "https://javdb.com";
+const API_BASE    = "https://porn-api.com/api/v1/public";
+const HENTAI_BASE = "https://hentaiocean.com";
+const AVDB_BASE   = "https://avdbapi.com/api.php/provide/vod";
 
 // ============================================================
 // SHARED FETCH HELPER
@@ -33,6 +32,55 @@ async function fetchHtml(url, extraHeaders = {}) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
   return res.text();
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  return res.json();
+}
+
+// ============================================================
+// AVDB API HELPER
+// ============================================================
+
+// type_id: 1=Censored, 2=Uncensored, 3=Uncensored Leaked,
+//          4=Amateur, 5=Chinese AV, 6=Hentai, 7=English Subtitle
+const AVDB_TYPES = {
+  censored: 1,
+  uncensored: 2,
+  "uncensored-leaked": 3,
+  amateur: 4,
+  "chinese-av": 5,
+  hentai: 6,
+  "english-subtitle": 7,
+};
+
+function normalizeItem(item) {
+  const embedUrl = item.episodes?.server_data?.Full?.link_embed || "";
+  return {
+    id:          item.id,
+    code:        item.movie_code || item.slug || "",
+    title:       item.name || item.origin_name || "",
+    slug:        item.slug || "",
+    type:        item.type_name || "",
+    poster_url:  item.poster_url || "",
+    thumb_url:   item.thumb_url || "",
+    actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
+    director:    (item.director || []).filter(d => d !== "Updating").join(", "),
+    categories:  item.category || [],
+    quality:     item.quality || "",
+    duration:    item.time || "",
+    year:        item.year || "",
+    description: (item.description || "").replace(/<[^>]+>/g, "").trim(),
+    pubDate:     item.vod_pubdate || item.created_at || "",
+    embedUrl,
+  };
 }
 
 // ============================================================
@@ -104,9 +152,7 @@ app.get("/hentai/list", async (req, res) => {
     res.json({
       data: {
         data: items.slice((safePage - 1) * limit, safePage * limit),
-        total,
-        page: safePage,
-        totalPages,
+        total, page: safePage, totalPages,
       },
     });
   } catch (err) {
@@ -160,165 +206,38 @@ app.get("/hentai/:slug", async (req, res) => {
 });
 
 // ============================================================
-// JAV ENDPOINTS
+// JAV ENDPOINTS — powered by avdbapi.com
 // ============================================================
 
-// ── RSS Parser (jav.guru) ───────────────────────────────────
-function parseJavGuruRss(rssText) {
-  const items = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  while ((match = itemRegex.exec(rssText)) !== null) {
-    const block = match[1];
-    const getTag = (tag) => {
-      const m = block.match(
-        new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`),
-      );
-      return m ? (m[1] || m[2] || "").trim() : "";
-    };
-    const link    = getTag("link");
-    const title   = getTag("title");
-    const pubDate = getTag("pubDate");
-    const desc    = getTag("description");
-
-    const slugMatch = link.match(/jav\.guru\/\d+\/([^/]+)\/?$/);
-    if (!slugMatch) continue;
-    const slug = slugMatch[1];
-
-    const codeMatch = slug.match(/^([a-z]+-\d+)/i);
-    if (!codeMatch) continue;
-    const code = codeMatch[1].toUpperCase();
-
-    const thumbMatch = desc.match(/<img[^>]+src="([^"]+)"/i);
-    const thumbnail  = thumbMatch ? thumbMatch[1] : "";
-
-    const genres = [];
-    const catRegex = /<category><!\[CDATA\[(.*?)\]\]><\/category>/g;
-    let catMatch;
-    while ((catMatch = catRegex.exec(block)) !== null)
-      if (catMatch[1].trim()) genres.push(catMatch[1].trim());
-
-    items.push({ code, slug, title, pubDate, thumbnail, genres, link });
-  }
-  return items;
-}
-
-// ── JavDB Scraper ───────────────────────────────────────────
-async function scrapeJavDB(code) {
-  // Step 1: search untuk dapat URL detail page
-  const searchHtml = await fetchHtml(
-    `${JAVDB_BASE}/search?q=${encodeURIComponent(code)}&f=all`,
-    {
-      Referer: "https://javdb.com/",
-      "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-      Cookie: "over18=1",
-    },
-  );
-
-  // Ambil hasil pertama
-  const firstResult = searchHtml.match(/href="(\/v\/[a-zA-Z0-9]+)"/);
-  if (!firstResult) return null;
-
-  const detailUrl = `${JAVDB_BASE}${firstResult[1]}`;
-  const html = await fetchHtml(detailUrl, {
-    Referer: "https://javdb.com/",
-    "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-    Cookie: "over18=1",
-  });
-
-  // Verify kode ada di halaman
-  if (!html.toUpperCase().includes(code.toUpperCase())) return null;
-
-  // Cover
-  const coverMatch =
-    html.match(/<img[^>]+class="[^"]*video-cover[^"]*"[^>]+src="([^"]+)"/i) ||
-    html.match(/property="og:image"[^>]+content="([^"]+)"/i) ||
-    html.match(/content="([^"]+)"[^>]+property="og:image"/i);
-  const coverUrl = coverMatch ? coverMatch[1] : "";
-
-  // Title
-  const titleMatch =
-    html.match(/property="og:title"[^>]+content="([^"]+)"/i) ||
-    html.match(/content="([^"]+)"[^>]+property="og:title"/i);
-  const fullTitle = titleMatch ? titleMatch[1].trim() : "";
-  const title = fullTitle
-    .replace(new RegExp(code, "i"), "")
-    .replace(/^[-\s]+/, "")
-    .trim();
-
-  // Helper ambil value dari panel info
-  const getPanel = (label) => {
-    const r = new RegExp(
-      `${label}[^<]*<\\/strong>[\\s\\S]*?<span[^>]*>([\\s\\S]*?)<\\/span>`,
-      "i",
-    );
-    const m = html.match(r);
-    if (!m) return "";
-    return m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  };
-
-  const premiered = getPanel("發行日期|Release Date|上映日期") || "";
-  const duration  = getPanel("時長|Duration|时长") || "";
-  const director  = getPanel("導演|Director|导演") || "";
-  const studio    = getPanel("片商|Studio|maker") || "";
-
-  // Actors
-  const actorMatches = [
-    ...html.matchAll(/class="actor"[^>]*>[\s\S]*?<strong[^>]*>([\s\S]*?)<\/strong>/gi),
-  ];
-  const actors = actorMatches
-    .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
-    .filter(Boolean)
-    .join(", ");
-
-  // Tags
-  const tagMatches = [...html.matchAll(/class="[^"]*tag[^"]*"[^>]*>([\s\S]*?)<\/a>/gi)];
-  const tags = tagMatches
-    .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
-    .filter((t) => t && t.length < 40)
-    .slice(0, 10)
-    .join(", ");
-
-  // Preview thumbs
-  const thumbMatches = [
-    ...html.matchAll(/class="[^"]*preview-images[^"]*"[\s\S]*?src="([^"]+)"/gi),
-  ];
-  const thumbs = thumbMatches.map((m) => m[1]).filter(Boolean);
-
-  if (!coverUrl && !title) return null;
-
-  return { code: code.toUpperCase(), title, coverUrl, premiered, duration, actors, tags, director, studio, thumbs };
-}
-
-// GET /jav/list
+// GET /jav/list?page=1&limit=20&type=censored
 app.get("/jav/list", async (req, res) => {
   try {
     const page  = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const type  = (req.query.type || "").toLowerCase().trim();
     const genre = (req.query.genre || "").toLowerCase().trim();
-    const sort  = req.query.sort || "newest";
 
-    const rssText = await fetchHtml(`${JAVGURU_BASE}/feed/`);
-    let items = parseJavGuruRss(rssText);
+    const typeId = AVDB_TYPES[type] || "";
+    const avdbUrl = typeId
+      ? `${AVDB_BASE}?ac=list&t=${typeId}&pg=${page}`
+      : `${AVDB_BASE}?ac=list&pg=${page}`;
 
-    if (genre)
-      items = items.filter((i) =>
-        i.genres.map((g) => g.toLowerCase()).includes(genre),
+    const json  = await fetchJson(avdbUrl);
+    let items   = (json.list || []).map(normalizeItem);
+
+    // Filter kategori manual kalau ada query genre
+    if (genre) {
+      items = items.filter(i =>
+        i.categories.some(c => c.toLowerCase().includes(genre)) ||
+        i.type.toLowerCase().includes(genre)
       );
-    if (sort === "oldest")
-      items.sort((a, b) => new Date(a.pubDate) - new Date(b.pubDate));
+    }
 
-    const total      = items.length;
-    const totalPages = Math.ceil(total / limit) || 1;
-    const safePage   = Math.min(page, totalPages);
-    res.json({
-      data: {
-        data: items.slice((safePage - 1) * limit, safePage * limit),
-        total,
-        page: safePage,
-        totalPages,
-      },
-    });
+    const total      = json.total || items.length;
+    const totalPages = json.pagecount || Math.ceil(total / limit) || 1;
+    const sliced     = items.slice(0, limit);
+
+    res.json({ data: { data: sliced, total, page, totalPages } });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch JAV list", message: err.message });
   }
@@ -327,11 +246,10 @@ app.get("/jav/list", async (req, res) => {
 // GET /jav/genres
 app.get("/jav/genres", async (req, res) => {
   try {
-    const rssText = await fetchHtml(`${JAVGURU_BASE}/feed/`);
-    const items   = parseJavGuruRss(rssText);
-    const genreSet = new Set();
-    items.forEach((i) => i.genres.forEach((g) => genreSet.add(g)));
-    res.json({ data: { genres: [...genreSet].sort() } });
+    const json    = await fetchJson(`${AVDB_BASE}?ac=list&pg=1`);
+    const classes = json.class || [];
+    const genres  = classes.map(c => c.type_name);
+    res.json({ data: { genres } });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch JAV genres", message: err.message });
   }
@@ -341,42 +259,21 @@ app.get("/jav/genres", async (req, res) => {
 app.get("/jav/detail/:code", async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
-    let data = null;
+    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(code)}`);
+    const list = json.list || [];
 
-    // Source 1: JavDB
-    try {
-      data = await scrapeJavDB(code);
-    } catch (e) {
-      console.warn(`[javdb] failed for ${code}:`, e.message);
-    }
+    if (!list.length) return res.status(404).json({ error: "JAV not found", code });
 
-    // Fallback: minimal dari RSS jav.guru
-    if (!data) {
-      try {
-        const rssText = await fetchHtml(`${JAVGURU_BASE}/feed/`);
-        const items   = parseJavGuruRss(rssText);
-        const found   = items.find((i) => i.code === code);
-        if (found) {
-          data = {
-            code,
-            title:     found.title,
-            coverUrl:  found.thumbnail,
-            premiered: found.pubDate ? new Date(found.pubDate).toISOString().split("T")[0] : "",
-            duration:  "",
-            actors:    "",
-            tags:      found.genres.join(", "),
-            director:  "",
-            studio:    "",
-            thumbs:    [],
-          };
-        }
-      } catch (e) {
-        console.warn(`[rss fallback] failed:`, e.message);
-      }
-    }
+    // Exact match dulu, fallback ke index 0
+    const exact = list.find(i =>
+      (i.movie_code || "").toUpperCase() === code ||
+      (i.slug || "").toUpperCase() === code.toLowerCase()
+    ) || list[0];
 
-    if (!data) return res.status(404).json({ error: "JAV not found", code });
-    res.json({ data });
+    const primary  = normalizeItem(exact);
+    const variants = list.map(normalizeItem);
+
+    res.json({ data: { ...primary, variants } });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch JAV detail", message: err.message });
   }
@@ -385,43 +282,20 @@ app.get("/jav/detail/:code", async (req, res) => {
 // GET /jav/search?q=SSIS-392
 app.get("/jav/search", async (req, res) => {
   try {
-    const q = (req.query.q || "").trim().toUpperCase();
+    const q = (req.query.q || "").trim();
     if (!q) return res.status(400).json({ error: "Query q is required" });
 
-    let data = null;
-    try {
-      data = await scrapeJavDB(q);
-    } catch (e) {
-      console.warn(`[javdb search] failed for ${q}:`, e.message);
-    }
+    const json = await fetchJson(`${AVDB_BASE}?ac=detail&wd=${encodeURIComponent(q)}`);
+    const list = json.list || [];
 
-    if (!data) return res.status(404).json({ error: "JAV not found", code: q });
-    res.json({ data });
+    if (!list.length) return res.status(404).json({ error: "JAV not found", code: q });
+
+    const primary  = normalizeItem(list[0]);
+    const variants = list.map(normalizeItem);
+
+    res.json({ data: { ...primary, variants } });
   } catch (err) {
     res.status(500).json({ error: "Search failed", message: err.message });
-  }
-});
-
-// DEBUG — hapus setelah selesai
-app.get("/debug/javdb/:code", async (req, res) => {
-  try {
-    const code = req.params.code.toUpperCase();
-    const searchHtml = await fetchHtml(
-      `${JAVDB_BASE}/search?q=${encodeURIComponent(code)}&f=all`,
-      {
-        Referer: "https://javdb.com/",
-        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-        Cookie: "over18=1",
-      }
-    );
-    const firstResult = searchHtml.match(/href="(\/v\/[a-zA-Z0-9]+)"/);
-    res.json({
-      htmlLength: searchHtml.length,
-      firstResult: firstResult ? firstResult[1] : null,
-      snippet: searchHtml.slice(0, 500),
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
   }
 });
 
