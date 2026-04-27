@@ -73,7 +73,7 @@ function normalizeItem(item) {
     slug:        slug,
     type:        item.type_name || "",
     poster_url:  item.poster_url || `https://upload18.cc/v/${slug}/poster.jpg`,
-    thumb_url:   item.thumb_url || "",
+    thumb_url:   item.thumb_url || `https://fourhoi.com/${(item.movie_code || item.slug || "").toLowerCase().replace(/_/g, '-')}/cover-n.jpg`,
     actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
     director:    (item.director || []).filter(d => d !== "Updating").join(", "),
     categories:  item.category || [],
