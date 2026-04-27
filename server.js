@@ -70,7 +70,7 @@ function normalizeItem(item) {
     slug:        item.slug || "",
     type:        item.type_name || "",
     poster_url:  item.poster_url || "",
-    thumb_url:   item.thumb_url || "",
+    thumb_url:   item.thumb_url || `https://fivetiu.com/${code.toLowerCase()}/cover-n.jpg`,
     actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
     director:    (item.director || []).filter(d => d !== "Updating").join(", "),
     categories:  item.category || [],
@@ -296,6 +296,66 @@ app.get("/jav/search", async (req, res) => {
     res.json({ data: { ...primary, variants } });
   } catch (err) {
     res.status(500).json({ error: "Search failed", message: err.message });
+  }
+});
+
+app.get("/jav/thumb", async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).send("url required");
+
+    const imgRes = await fetch(url, {
+      headers: {
+        "Referer": "https://upload18.cc/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+
+    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const buffer = await imgRes.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).send("Image fetch failed");
+  }
+});
+
+app.get("/proxy/image", async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).send("url required");
+
+    // Tentukan referer berdasarkan domain
+    const domain = new URL(url).hostname;
+    const refererMap = {
+      "upload18.cc":      "https://upload18.cc/",
+      "hentaiocean.com":  "https://hentaiocean.com/",
+      "i0.wp.com":        "https://hentaiocean.com/",
+      "i1.wp.com":        "https://hentaiocean.com/",
+      "i2.wp.com":        "https://hentaiocean.com/",
+    };
+    const referer = refererMap[domain] || `https://${domain}/`;
+
+    const imgRes = await fetch(url, {
+      headers: {
+        "Referer": referer,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+    });
+
+    if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+
+    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const buffer = await imgRes.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).send("Image fetch failed");
   }
 });
 
