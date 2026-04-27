@@ -62,15 +62,18 @@ const AVDB_TYPES = {
 };
 
 function normalizeItem(item) {
+  const code = item.movie_code || item.slug || "";
+  const slug = item.slug || code.toLowerCase();
   const embedUrl = item.episodes?.server_data?.Full?.link_embed || "";
+  
   return {
     id:          item.id,
-    code:        item.movie_code || item.slug || "",
+    code:        code,
     title:       item.name || item.origin_name || "",
-    slug:        item.slug || "",
+    slug:        slug,
     type:        item.type_name || "",
-    poster_url:  item.poster_url || "",
-    thumb_url:   item.thumb_url || `https://fivetiu.com/${code.toLowerCase()}/cover-n.jpg`,
+    poster_url:  item.poster_url || `https://upload18.cc/v/${slug}/poster.jpg`,
+    thumb_url:   item.thumb_url  || `https://upload18.cc/v/${slug}/thumb.jpg`,
     actors:      (item.actor || []).filter(a => a !== "Updating").join(", "),
     director:    (item.director || []).filter(d => d !== "Updating").join(", "),
     categories:  item.category || [],
